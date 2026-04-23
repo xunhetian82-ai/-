@@ -329,22 +329,48 @@
 
   .history-section { animation: fadeUp 0.6s ease 0.4s both; }
 
-  .history-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
+  /* 月カレンダー ナビゲーション */
+  .cal-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .cal-month-label { font-size: 14px; font-weight: 700; color: var(--text); }
+  .cal-nav-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text-muted);
+    font-size: 18px; min-width: 44px; min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent; transition: all 0.2s ease;
+  }
+  .cal-nav-btn:active { background: var(--surface); opacity: 0.7; }
+
+  /* 曜日ヘッダー */
+  .cal-weekdays {
+    display: grid; grid-template-columns: repeat(7,1fr);
+    gap: 3px; margin-bottom: 3px;
+  }
+  .cal-weekday {
+    text-align: center; font-size: 10px;
+    color: var(--text-muted); padding: 3px 0; font-weight: 700;
+  }
+
+  /* カレンダーグリッド */
+  .history-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
 
   .history-day {
-    aspect-ratio: 1; border-radius: 10px;
+    aspect-ratio: 1; border-radius: 7px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: var(--surface); border: 1px solid var(--border);
     font-size: 10px; color: var(--text-muted);
   }
-
-  .history-day .day-label { font-size: 9px; margin-bottom: 2px; font-weight: 300; }
-  .history-day .day-num { font-size: 13px; font-weight: 700; color: var(--text); }
+  .history-day.empty { background: transparent; border-color: transparent; }
+  .history-day .day-num { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1; }
 
   .history-day.full { background: rgba(126,232,162,0.12); border-color: rgba(126,232,162,0.4); }
   .history-day.full .day-num { color: var(--accent); }
   .history-day.partial { background: rgba(88,166,255,0.08); border-color: rgba(88,166,255,0.3); }
-  .history-day.today-marker { border-color: var(--accent2); box-shadow: 0 0 10px rgba(88,166,255,0.2); }
+  .history-day.today-marker { border-color: var(--accent2); box-shadow: 0 0 8px rgba(88,166,255,0.25); }
 
   .notif-dot {
     width: 8px; height: 8px; background: var(--accent3);
@@ -685,7 +711,20 @@
     </div>
 
     <div class="history-section">
-      <div class="section-title">過去7日間の記録</div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeCalMonth(-1)">‹</button>
+        <div class="cal-month-label" id="calMonthLabel"></div>
+        <button class="cal-nav-btn" onclick="changeCalMonth(1)">›</button>
+      </div>
+      <div class="cal-weekdays">
+        <div class="cal-weekday" style="color:var(--accent3)">日</div>
+        <div class="cal-weekday">月</div>
+        <div class="cal-weekday">火</div>
+        <div class="cal-weekday">水</div>
+        <div class="cal-weekday">木</div>
+        <div class="cal-weekday">金</div>
+        <div class="cal-weekday" style="color:var(--accent2)">土</div>
+      </div>
       <div class="history-grid" id="historyGrid"></div>
     </div>
 
@@ -775,6 +814,15 @@
 <script>
   const MEDS_COUNT = 3;
   const DAY_LABELS = ['日','月','火','水','木','金','土'];
+  let calYear = new Date().getFullYear();
+  let calMonth = new Date().getMonth(); // 0-indexed
+
+  function changeCalMonth(delta) {
+    calMonth += delta;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderMedHistory();
+  }
   const CONDITIONS = {
     '普通':'😊','軟らかめ':'😅','硬め':'😣',
     '下痢':'😰','便秘気味':'😖','スッキリ':'✨'
@@ -840,22 +888,39 @@
   }
 
   function renderMedHistory() {
-    const state=loadMedState();
-    const grid=document.getElementById('historyGrid');
-    grid.innerHTML='';
-    const today=new Date();
-    for (let i=6;i>=0;i--) {
-      const d=new Date(today); d.setDate(d.getDate()-i);
-      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const dt=state[key]||[false,false,false];
-      const count=dt.filter(Boolean).length;
-      const div=document.createElement('div');
-      div.className='history-day';
-      if (count===MEDS_COUNT) div.classList.add('full');
-      else if (count>0) div.classList.add('partial');
-      if (i===0) div.classList.add('today-marker');
-      div.innerHTML=`<div class="day-label">${DAY_LABELS[d.getDay()]}</div><div class="day-num">${d.getDate()}</div>`;
-      if (count===MEDS_COUNT) div.innerHTML+='<div style="font-size:9px;color:var(--accent);margin-top:1px">✓</div>';
+    const state = loadMedState();
+    const grid = document.getElementById('historyGrid');
+    grid.innerHTML = '';
+    const todayKey = getTodayKey();
+
+    // 月ラベル更新
+    document.getElementById('calMonthLabel').textContent = `${calYear}年${calMonth+1}月`;
+
+    // 月の1日の曜日（0=日〜6=土）
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    // 月の日数
+    const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+
+    // 1日より前の空セル
+    for (let i = 0; i < firstDay; i++) {
+      const div = document.createElement('div');
+      div.className = 'history-day empty';
+      grid.appendChild(div);
+    }
+
+    // 各日のセル
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dt = state[key] || [false,false,false];
+      const count = dt.filter(Boolean).length;
+      const isToday = key === todayKey;
+      const div = document.createElement('div');
+      div.className = 'history-day';
+      if (count === MEDS_COUNT) div.classList.add('full');
+      else if (count > 0) div.classList.add('partial');
+      if (isToday) div.classList.add('today-marker');
+      div.innerHTML = `<div class="day-num">${d}</div>`;
+      if (count === MEDS_COUNT) div.innerHTML += '<div style="font-size:7px;color:var(--accent);margin-top:1px">✓</div>';
       grid.appendChild(div);
     }
   }
