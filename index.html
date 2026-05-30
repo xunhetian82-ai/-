@@ -639,6 +639,121 @@
     .condition-grid { grid-template-columns: repeat(2,1fr); }
     .med-name { font-size: 14px; }
   }
+
+  /* ===== 日付編集モーダル ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.72);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px;
+    padding-bottom: calc(32px + var(--safe-bottom));
+    width: 100%; max-width: 480px;
+    max-height: 88vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-day-label { font-size: 16px; font-weight: 700; color: var(--text); }
+
+  .modal-close-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text-muted);
+    font-size: 14px; min-width: 44px; min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .modal-close-btn:active { opacity: 0.6; }
+
+  .modal-section-title {
+    font-size: 11px; color: var(--text-muted);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 12px; margin-top: 20px; padding-left: 2px;
+  }
+  .modal-section-title:first-of-type { margin-top: 0; }
+
+  .modal-save-btn {
+    display: block; width: 100%;
+    padding: 15px; min-height: 50px;
+    background: rgba(126,232,162,0.12);
+    border: 1px solid rgba(126,232,162,0.4);
+    border-radius: 14px; color: var(--accent);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    margin-top: 24px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    transition: all 0.2s ease;
+  }
+  .modal-save-btn:active { opacity: 0.7; transform: scale(0.98); }
+  .modal-save-btn.bowel-save {
+    background: rgba(255,209,102,0.12);
+    border-color: rgba(255,209,102,0.4);
+    color: var(--accent5);
+  }
+
+  /* タップ可能なカレンダーセル */
+  .history-day.tappable { cursor: pointer; }
+  .history-day.tappable:active { opacity: 0.65; transform: scale(0.93); }
+
+  /* モーダル内の臨時薬入力 */
+  .modal-extra-row {
+    display: flex; gap: 8px; margin-bottom: 10px; align-items: stretch;
+  }
+  .modal-time-input {
+    width: 80px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 8px; color: var(--text);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 14px; outline: none;
+    -webkit-appearance: none; appearance: none;
+    min-height: 44px; text-align: center;
+    flex-shrink: 0;
+  }
+  .modal-time-input:focus { border-color: rgba(210,168,255,0.5); }
+
+  /* モーダル内カウンター */
+  .modal-bowel-counter {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px;
+  }
+  .modal-count-display {
+    text-align: center; min-width: 56px;
+  }
+  .modal-count-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px; color: var(--accent5); line-height: 1;
+  }
+  .modal-count-unit { font-size: 11px; color: var(--text-muted); }
+  .modal-counter-btns { display: flex; gap: 8px; flex: 1; }
 </style>
 </head>
 <body>
@@ -833,6 +948,64 @@
   </div>
 
 </div>
+
+<!-- ===== 日付編集モーダル ===== -->
+<div class="modal-overlay" id="dayModal" onclick="handleModalOverlayClick(event)">
+  <div class="modal-card" id="dayModalCard">
+    <div class="modal-header">
+      <div class="modal-day-label" id="modalDayLabel"></div>
+      <button class="modal-close-btn" onclick="closeDayModal()">✕</button>
+    </div>
+
+    <!-- 服薬編集セクション -->
+    <div id="modalMedSection">
+      <div class="modal-section-title">服薬チェック</div>
+      <div class="med-list" id="modalMedList"></div>
+
+      <div class="modal-section-title" style="margin-top:24px">💜 臨時の薬・市販薬</div>
+      <div class="modal-extra-row">
+        <input class="extra-med-input" id="modalExtraInput" type="text"
+          placeholder="薬の名前" maxlength="40"
+          onkeydown="if(event.key==='Enter'){addModalExtraMed();}">
+        <input class="modal-time-input" id="modalExtraTime" type="time">
+        <button class="extra-add-btn" onclick="addModalExtraMed()">追加</button>
+      </div>
+      <div id="modalExtraList"></div>
+
+      <button class="modal-save-btn" onclick="saveMedDayModal()">✓ 保存する</button>
+    </div>
+
+    <!-- お通じ編集セクション -->
+    <div id="modalBowelSection" style="display:none">
+      <div class="modal-section-title">お通じの回数</div>
+      <div class="modal-bowel-counter">
+        <div class="modal-count-display">
+          <div class="modal-count-num" id="modalBowelCount">0</div>
+          <div class="modal-count-unit">回</div>
+        </div>
+        <div class="modal-counter-btns">
+          <button class="counter-btn add" onclick="modalBowelAdd()" style="flex:1">＋ 追加</button>
+          <button class="counter-btn minus" onclick="modalBowelRemove()" style="max-width:72px">－ 戻す</button>
+        </div>
+      </div>
+
+      <div class="modal-section-title">状態（任意）</div>
+      <div class="condition-grid" style="margin-bottom:20px">
+        <button class="condition-btn" onclick="modalSelectCondition('普通')" id="mcond-普通"><span class="cond-emoji">😊</span>普通</button>
+        <button class="condition-btn" onclick="modalSelectCondition('軟らかめ')" id="mcond-軟らかめ"><span class="cond-emoji">😅</span>軟らかめ</button>
+        <button class="condition-btn" onclick="modalSelectCondition('硬め')" id="mcond-硬め"><span class="cond-emoji">😣</span>硬め</button>
+        <button class="condition-btn" onclick="modalSelectCondition('下痢')" id="mcond-下痢"><span class="cond-emoji">😰</span>下痢</button>
+        <button class="condition-btn" onclick="modalSelectCondition('便秘気味')" id="mcond-便秘気味"><span class="cond-emoji">😖</span>便秘気味</button>
+        <button class="condition-btn" onclick="modalSelectCondition('スッキリ')" id="mcond-スッキリ"><span class="cond-emoji">✨</span>スッキリ</button>
+      </div>
+
+      <div class="modal-section-title">メモ（任意）</div>
+      <textarea class="note-input" id="modalBowelNote" placeholder="気になることがあれば…" style="margin-bottom:4px"></textarea>
+
+      <button class="modal-save-btn bowel-save" onclick="saveBowelDayModal()">✓ 保存する</button>
+    </div>
+  </div>
+</div>
 <script>
   const MEDS_COUNT = 3;
   const DAY_LABELS = ['日','月','火','水','木','金','土'];
@@ -947,12 +1120,16 @@
       const count = dt.filter(Boolean).length;
       const isToday = key === todayKey;
       const div = document.createElement('div');
-      div.className = 'history-day';
+      div.className = 'history-day tappable';
       if (count === MEDS_COUNT) div.classList.add('full');
       else if (count > 0) div.classList.add('partial');
       if (isToday) div.classList.add('today-marker');
+      // 臨時の薬があるか確認
+      const extra = loadExtraMeds()[key] || [];
       div.innerHTML = `<div class="day-num">${d}</div>`;
       if (count === MEDS_COUNT) div.innerHTML += '<div style="font-size:7px;color:var(--accent);margin-top:1px">✓</div>';
+      if (extra.length > 0) div.innerHTML += `<div style="font-size:7px;color:var(--accent4);margin-top:1px">💜${extra.length}</div>`;
+      div.addEventListener('click', () => openMedDayModal(key));
       grid.appendChild(div);
     }
   }
@@ -1031,7 +1208,7 @@
       const isToday = key === todayKey;
 
       const div = document.createElement('div');
-      div.className = 'history-day';
+      div.className = 'history-day tappable';
       if (count > 0) div.classList.add('has-record');
       if (isToday) div.classList.add('today-marker');
 
@@ -1039,6 +1216,7 @@
       if (count > 0) inner += `<div class="bowel-count">${count}回</div>`;
       if (condEmoji) inner += `<div style="font-size:9px;margin-top:1px">${condEmoji}</div>`;
       div.innerHTML = inner;
+      div.addEventListener('click', () => openBowelDayModal(key));
       grid.appendChild(div);
     }
   }
@@ -1086,6 +1264,160 @@
         <button class="extra-del-btn" onclick="deleteExtraMed(${item.id})">削除</button>
       </div>
     `).join('');
+  }
+
+  // ===== 日付編集モーダル =====
+  let editingKey = null;
+  let modalTaken = [false, false, false];
+  let modalBowel = { count: 0, condition: '', note: '' };
+
+  function getKeyLabel(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const isToday = key === getTodayKey();
+    return `${y}年${m}月${d}日（${DAY_LABELS[date.getDay()]}）${isToday ? ' 📍今日' : ''}`;
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('dayModal')) closeDayModal();
+  }
+
+  function closeDayModal() {
+    document.getElementById('dayModal').classList.remove('show');
+    editingKey = null;
+  }
+
+  // --- 服薬モーダル ---
+  function openMedDayModal(key) {
+    editingKey = key;
+    const state = loadMedState();
+    modalTaken = [...(state[key] || [false, false, false])];
+    document.getElementById('modalDayLabel').textContent = getKeyLabel(key);
+    renderModalMedItems();
+    renderModalExtraMeds(key);
+    document.getElementById('modalMedSection').style.display = 'block';
+    document.getElementById('modalBowelSection').style.display = 'none';
+    // 時刻の初期値を現在時刻に
+    const now = new Date();
+    document.getElementById('modalExtraTime').value =
+      `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('dayModal').classList.add('show');
+  }
+
+  const MED_ICONS = ['💊','☀️','🍊'];
+  const MED_NAMES = ['アレルギーの薬','ビタミンD','ビタミンC'];
+
+  function renderModalMedItems() {
+    const list = document.getElementById('modalMedList');
+    list.innerHTML = MED_NAMES.map((name, i) => `
+      <div class="med-item ${modalTaken[i] ? 'taken' : ''}" onclick="toggleModalMed(${i})" style="cursor:pointer">
+        <div class="med-icon">${MED_ICONS[i]}</div>
+        <div class="med-info"><div class="med-name">${name}</div></div>
+        <button class="check-btn" style="${modalTaken[i] ? 'background:var(--accent);border-color:var(--accent);color:#0d1117' : ''}">✓</button>
+      </div>
+    `).join('');
+  }
+
+  function toggleModalMed(i) {
+    modalTaken[i] = !modalTaken[i];
+    renderModalMedItems();
+  }
+
+  function saveMedDayModal() {
+    const state = loadMedState();
+    state[editingKey] = modalTaken;
+    saveMedState(state);
+    closeDayModal();
+    renderMed();
+  }
+
+  // --- 臨時の薬（モーダル内）---
+  function renderModalExtraMeds(key) {
+    const extra = loadExtraMeds()[key] || [];
+    const list = document.getElementById('modalExtraList');
+    if (extra.length === 0) {
+      list.innerHTML = '<div class="extra-empty">まだ記録なし</div>';
+    } else {
+      list.innerHTML = extra.map(item => `
+        <div class="extra-med-item">
+          <div class="em-icon">💊</div>
+          <div class="em-info">
+            <div class="em-name">${item.name}</div>
+            <div class="em-time">🕐 ${item.time}</div>
+          </div>
+          <button class="extra-del-btn" onclick="deleteModalExtraMed(${item.id})">削除</button>
+        </div>
+      `).join('');
+    }
+  }
+
+  function addModalExtraMed() {
+    const input = document.getElementById('modalExtraInput');
+    const name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    const timeVal = document.getElementById('modalExtraTime').value || '--:--';
+    const s = loadExtraMeds();
+    if (!s[editingKey]) s[editingKey] = [];
+    s[editingKey].push({ name, time: timeVal, id: Date.now() });
+    saveExtraMeds(s);
+    input.value = '';
+    renderModalExtraMeds(editingKey);
+    renderMedHistory(); // カレンダーの💜バッジ更新
+  }
+
+  function deleteModalExtraMed(id) {
+    const s = loadExtraMeds();
+    if (s[editingKey]) {
+      s[editingKey] = s[editingKey].filter(item => item.id !== id);
+      if (s[editingKey].length === 0) delete s[editingKey];
+    }
+    saveExtraMeds(s);
+    renderModalExtraMeds(editingKey);
+    renderMedHistory();
+  }
+
+  // --- お通じモーダル ---
+  function openBowelDayModal(key) {
+    editingKey = key;
+    const state = loadBowelState();
+    modalBowel = { ...(state[key] || { count: 0, condition: '', note: '' }) };
+    document.getElementById('modalDayLabel').textContent = getKeyLabel(key);
+    renderModalBowel();
+    document.getElementById('modalMedSection').style.display = 'none';
+    document.getElementById('modalBowelSection').style.display = 'block';
+    document.getElementById('dayModal').classList.add('show');
+  }
+
+  function renderModalBowel() {
+    document.getElementById('modalBowelCount').textContent = modalBowel.count;
+    Object.keys(CONDITIONS).forEach(c => {
+      const el = document.getElementById('mcond-' + c);
+      if (el) el.classList.toggle('selected', modalBowel.condition === c);
+    });
+    document.getElementById('modalBowelNote').value = modalBowel.note || '';
+  }
+
+  function modalBowelAdd() { modalBowel.count++; renderModalBowel(); }
+  function modalBowelRemove() { if (modalBowel.count > 0) modalBowel.count--; renderModalBowel(); }
+
+  function modalSelectCondition(cond) {
+    modalBowel.condition = modalBowel.condition === cond ? '' : cond;
+    renderModalBowel();
+  }
+
+  function saveBowelDayModal() {
+    modalBowel.note = document.getElementById('modalBowelNote').value;
+    const state = loadBowelState();
+    if (modalBowel.count === 0 && !modalBowel.condition && !modalBowel.note.trim()) {
+      delete state[editingKey];
+    } else {
+      state[editingKey] = modalBowel;
+    }
+    saveBowelState(state);
+    // 今日のデータが変わった場合はメイン画面も更新
+    if (editingKey === getTodayKey()) renderBowel();
+    else renderBowelHistory();
+    closeDayModal();
   }
 
   renderMed();
